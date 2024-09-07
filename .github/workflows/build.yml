@@ -26,24 +26,40 @@ jobs:
     
     - name: Get the version
       id: get_version
-      run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
-      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        if [[ $GITHUB_REF == refs/tags/* ]]; then
+          echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
+        else
+          echo ::set-output name=VERSION::${GITHUB_SHA::8}
+        fi
+
+    - name: Debug info
+      run: |
+        echo "GITHUB_REF: $GITHUB_REF"
+        echo "Version: ${{ steps.get_version.outputs.VERSION }}"
+        ls -R ./target/debug
 
     - name: Upload to Pixeldrain
       id: upload-to-pixeldrain
       run: |
-        RESPONSE=$(curl -T "./target/debug/RatioUp" https://pixeldrain.com/api/file/)
+        BINARY_NAME=$(ls ./target/debug | grep -v '\.d$' | head -n 1)
+        echo "Uploading binary: $BINARY_NAME"
+        RESPONSE=$(curl -T "./target/debug/$BINARY_NAME" https://pixeldrain.com/api/file/)
+        echo "Pixeldrain response: $RESPONSE"
         UPLOAD_ID=$(echo $RESPONSE | jq -r '.id')
+        echo "Upload ID: $UPLOAD_ID"
         echo "::set-output name=upload_id::$UPLOAD_ID"
-      if: startsWith(github.ref, 'refs/tags/')
+        echo "::set-output name=binary_name::$BINARY_NAME"
 
     - name: Create Release
       uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ steps.get_version.outputs.VERSION }}
-        release_name: Release ${{ steps.get_version.outputs.VERSION }} (Debug)
+        release_name: Release ${{ steps.get_version.outputs.VERSION }}
         body: |
-          Debug binary uploaded to Pixeldrain: https://pixeldrain.com/u/${{ steps.upload-to-pixeldrain.outputs.upload_id }}
+          Binary (${{ steps.upload-to-pixeldrain.outputs.binary_name }}) uploaded to Pixeldrain: https://pixeldrain.com/u/${{ steps.upload-to-pixeldrain.outputs.upload_id }}
         draft: false
-        prerelease: true
+        prerelease: false
       if: startsWith(github.ref, 'refs/tags/')
