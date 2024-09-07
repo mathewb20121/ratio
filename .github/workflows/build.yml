@@ -10,6 +10,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  PIXELDRAIN_API_KEY: eefdad2d-24da-4fa1-87fa-8b9c5116a724
 
 jobs:
   build:
@@ -44,7 +45,7 @@ jobs:
       run: |
         BINARY_NAME=$(ls ./target/debug | grep -v '\.d$' | head -n 1)
         echo "Uploading binary: $BINARY_NAME"
-        RESPONSE=$(curl -T "./target/debug/$BINARY_NAME" https://pixeldrain.com/api/file/)
+        RESPONSE=$(curl -u :${{ env.PIXELDRAIN_API_KEY }} -T "./target/debug/$BINARY_NAME" https://pixeldrain.com/api/file/)
         echo "Pixeldrain response: $RESPONSE"
         UPLOAD_ID=$(echo $RESPONSE | jq -r '.id')
         echo "Upload ID: $UPLOAD_ID"
